@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Coordinates boilerplate example</title>
+    <style>
+      body, html{
+        background: #000;
+        margin: 0;
+        min-height: 100vh;
+        overflow: hidden;
+      }
+    </style>
+  </head>
+  <body>
+  <!--
+    src link www.facebook.com/groups/tiling/posts/2521451884945008
+  -->
+<script type="module">
+
+  import * as Coordinates from
+  "https://srmcgann.github.io/Coordinates/coordinates.min.js"
+
+  var rendererOptions = {
+    ambientLight: .5, margin: 0,
+    fov: 1e3, width: 1920, height: 1080,
+    //fov: 1e3/2, width: 1920/2, height: 1080/2,
+    // uncomment above for lower-res, higher-performance canvas
+  }
+  var renderer = await Coordinates.Renderer(rendererOptions)
+  
+  var refTexture = 'https://srmcgann.github.io/Coordinates/resources/bumpmap_equirectangular_po2.jpg'
+  
+  var S = Math.sin
+  var C = Math.cos
+  var Rn = Math.random
+  
+  var x, y, z, p, q, d
+  
+  Coordinates.AnimationLoop(renderer, 'Draw')
+
+  var shaderOptions = [
+    {lighting: {type: 'ambientLight', value: .4}},
+    { uniform: {
+      type: 'phong',
+      value: .1,
+    } },
+    { uniform: {
+      type: 'reflection',
+      map: refTexture,
+      value: .1
+    } },
+    { uniform: {
+      type: 'refraction2',
+      angleOfRefraction: -.25,
+      map: refTexture,
+      value: 1
+    } },
+  ]
+  var shader = await Coordinates.BasicShader(renderer, shaderOptions)
+
+  var shaderOptions = [
+    {lighting: {type: 'ambientLight', value: .25}},
+    { uniform: {
+      type: 'phong',
+      value: 0
+    } }
+  ]
+  var backgroundShader = await Coordinates.BasicShader(renderer, shaderOptions)
+
+
+  var shapes = []
+
+  var geoOptions = {
+    shapeType: 'dodecahedron',
+    name: 'background',
+    sphereize: 1,
+    subs: 4,
+    map: refTexture,
+    size: 5e3,
+    colorMix: 0,
+  }
+  await Coordinates.LoadGeometry(renderer, geoOptions).then(async (geometry) => {
+    shapes.push(geometry)
+    await backgroundShader.ConnectGeometry(geometry)
+  })
+  
+  var geo2 = []
+  var geometryData = []
+  
+  var ls = 8
+  var cl = 20
+  var sp2 = ls / 8
+  var endpoints = [], oth, supTheta = 0
+  for(var k =0; k < 3; k++){
+    var tx = -S(q=Math.PI*2/3*k) * sp2
+    var ty = -C(q) * sp2
+    var tz = 0
+    var zTheta = (k==1 ? -1 : 1) * .2
+    var yTheta = .85
+    for(var i = 0; i < 3; i ++){
+      for(var j = 0; j < cl; j++){
+        var ls1, ls2
+        ls1 = j/cl*ls * (i==1?1:.5)
+        ls2 = (j+1)/cl*ls * (i==1?1:.5)
+        oth = i!=1 ? Math.PI*2/3*i + supTheta : Math.PI*2/3*i
+        var x1 = S(p=oth-Math.PI/6) * ls1-ls/2
+        var y1 = C(p) * ls1
+        var z1 = 0
+        var x2 = S(p=oth-Math.PI/6) * ls2-ls/2
+        var y2 = C(p) * ls2
+        var z2 = 0
+        
+        p = Math.atan2(y1, z1) + yTheta
+        d = Math.hypot(y1, z1)
+        y1 = S(p) * d
+        z1 = C(p) * d
+        
+        p = Math.atan2(y2, z2) + yTheta
+        d = Math.hypot(y2, z2)
+        y2 = S(p) * d
+        z2 = C(p) * d
+        
+        p = Math.atan2(x1, z1) - zTheta
+        d = Math.hypot(x1, z1)
+        x1 = S(p) * d
+        z1 = C(p) * d
+        
+        p = Math.atan2(x2, z2) - zTheta
+        d = Math.hypot(x2, z2)
+        x2 = S(p) * d
+        z2 = C(p) * d
+        
+        p = Math.atan2(x1, y1) - Math.PI*2/6*k
+        d = Math.hypot(x1, y1)
+        x1 = S(p) * d
+        y1 = C(p) * d
+        
+        p = Math.atan2(x2, y2) - Math.PI*2/6*k
+        d = Math.hypot(x2, y2)
+        x2 = S(p) * d
+        y2 = C(p) * d
+        
+        x1 += tx
+        y1 += ty
+        z1 += tz
+        x2 += tx
+        y2 += ty
+        z2 += tz
+        geometryData.push([x1,y1,z1], [x2,y2,z2])
+        if(i!=1 && j==cl-1) endpoints.push({ x1,y1,z1,x2,y2,z2 })
+
+        oth = i!=2 ? Math.PI*2/3*i + supTheta : Math.PI*2/3*i
+        ls1 = j/cl*ls * (i==2?1:.5)
+        ls2 = (j+1)/cl*ls * (i==2?1:.5)
+        x1 = S(p=oth+Math.PI/6) * ls1+ls/2
+        y1 = C(p) * ls1
+        z1 = 0
+        x2 = S(p=oth+Math.PI/6) * ls2+ls/2
+        y2 = C(p) * ls2
+        z2 = 0
+        
+        p = Math.atan2(y1, z1) - yTheta
+        d = Math.hypot(y1, z1)
+        y1 = S(p) * d
+        z1 = C(p) * d
+        
+        p = Math.atan2(y2, z2) - yTheta
+        d = Math.hypot(y2, z2)
+        y2 = S(p) * d
+        z2 = C(p) * d
+
+        p = Math.atan2(x1, z1) - zTheta
+        d = Math.hypot(x1, z1)
+        x1 = S(p) * d
+        z1 = C(p) * d
+        
+        p = Math.atan2(x2, z2) - zTheta
+        d = Math.hypot(x2, z2)
+        x2 = S(p) * d
+        z2 = C(p) * d
+        
+        p = Math.atan2(x1, y1) - Math.PI*2/6*k
+        d = Math.hypot(x1, y1)
+        x1 = S(p) * d
+        y1 = C(p) * d
+        
+        p = Math.atan2(x2, y2) - Math.PI*2/6*k
+        d = Math.hypot(x2, y2)
+        x2 = S(p) * d
+        y2 = C(p) * d
+
+        x1 += tx
+        y1 += ty
+        z1 += tz
+        x2 += tx
+        y2 += ty
+        z2 += tz
+        geometryData.push([x1,y1,z1], [x2,y2,z2])
+        if(i!=2 && j==cl-1) endpoints.push({ x1,y1,z1,x2,y2,z2 })
+      }
+    }
+  }
+  var homing = 25
+  var lookup = [
+    5, // 0
+    10, // 1
+    7, // 2
+    8, // 3
+    9, // 4
+    0, // 5
+    11, // 6
+    2, // 7
+    3, // 8
+    4, // 9
+    1, // 10
+    6, // 11
+  ]
+  for(var i = 32; i--;){
+  endpoints.forEach((p, pIdx) => {
+    var lIdx = lookup[pIdx]
+    var x1 = p.x1
+    var y1 = p.y1
+    var z1 = p.z1
+    var x2 = p.x2
+    var y2 = p.y2
+    var z2 = p.z2
+    if(lIdx != -1){
+        var tvx = endpoints[lIdx].x2
+        var tvy = endpoints[lIdx].y2
+        var tvz = endpoints[lIdx].z2
+        var vx = x2-x1
+        var vy = y2-y1
+        var vz = z2-z1
+        var d1 = Math.hypot(vx, vy, vz)
+        var d2 = Math.hypot(tvx-x2, tvy-y2, tvz-z2)
+        vx += (tvx-x2)/d2/homing
+        vy += (tvy-y2)/d2/homing
+        vz += (tvz-z2)/d2/homing
+        d = Math.hypot(vx, vy, vz)
+        vx /= d
+        vy /= d
+        vz /= d
+        vx *= d1
+        vy *= d1
+        vz *= d1
+        if(1) geometryData.push(
+          [x2, y2, z2],
+          [x1 = x2+vx, y1 = y2+vy, z1 = z2+vz]
+        )
+        p.x1 = endpoints[pIdx].x1 = x2
+        p.y1 = endpoints[pIdx].y1 = y2
+        p.z1 = endpoints[pIdx].z1 = z2
+        p.x2 = endpoints[pIdx].x2 = x2+vx
+        p.y2 = endpoints[pIdx].y2 = y2+vy
+        p.z2 = endpoints[pIdx].z2 = z2+vz
+        x2 = x1
+        y2 = y1
+        z2 = z1
+      }
+    })
+  }
+  
+  var geoOptions = {
+    shapeType: 'lines',
+    name: 'main',
+    geometryData,
+    size: 3,
+    color: 0xff8800,
+    alpha: .75,
+    penumbra: .33,
+  }
+  await Coordinates.LoadGeometry(renderer, geoOptions).then(async (geometry) => {
+    shapes.push(geometry)
+    //await shader.ConnectGeometry(geometry)
+  })
+  
+  var vertices = []
+  var uvs = []
+  var normals = []
+  var normalVecs = []
+  for(var i = 0; i < geometryData.length; i+=2){
+    var x1 = geometryData[i][0]
+    var y1 = geometryData[i][1]
+    var z1 = geometryData[i][2]
+    var x2 = geometryData[(i+1)%geometryData.length][0]
+    var y2 = geometryData[(i+1)%geometryData.length][1]
+    var z2 = geometryData[(i+1)%geometryData.length][2]
+    var x3 = geometryData[(i+3)%geometryData.length][0]
+    var y3 = geometryData[(i+3)%geometryData.length][1]
+    var z3 = geometryData[(i+3)%geometryData.length][2]
+    var xa = (x1 + x2) / 2
+    var ya = (y1 + y2) / 2
+    var za = (z1 + z2) / 2
+    var xb = (x2 + x3) / 2
+    var yb = (y2 + y3) / 2
+    var zb = (z2 + z3) / 2
+    var p1 = Math.atan2(x2-x1, y2-y1)
+    var d1 = Math.hypot(x2-x1, y2-y1)
+    var p2 = Math.atan2(x3-x2, y3-y2)
+    var d2 = Math.atan2(x3-x2, y3-y2)
+    x = xa + S(p1 + Math.PI/2) * d1
+    y = ya + C(p1 + Math.PI/2) * d1
+    z = za
+    vertices.push(x, y, z)
+    x = xa - S(p1 + Math.PI/2) * d1
+    y = ya - C(p1 + Math.PI/2) * d1
+    z = za
+    vertices.push(x, y, z)
+    x = xb - S(p2 + Math.PI/2) * d2
+    y = yb - C(p2 + Math.PI/2) * d2
+    z = zb
+    vertices.push(x, y, z)
+    x = xb - S(p2 + Math.PI/2) * d2
+    y = yb - C(p2 + Math.PI/2) * d2
+    z = zb
+    vertices.push(x, y, z)
+    x = xb + S(p2 + Math.PI/2) * d2
+    y = yb + C(p2 + Math.PI/2) * d2
+    z = zb
+    vertices.push(x, y, z)
+    x = xa + S(p1 + Math.PI/2) * d1
+    y = ya + C(p1 + Math.PI/2) * d1
+    z = za
+    vertices.push(x, y, z)
+    uvs.push(0,0,0,0,0,0,0,0,0,0,0,0)
+    normalVecs.push(0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0)
+    normals.push(0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+                 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0)
+  }
+  console.log(geometryData)
+  var geoOptions = {
+    shapeType: 'custom shape',
+    name: 'output',
+    geometryData: {
+      vertices, uvs, normals, normalVecs,
+    },
+    averageNormals: true,
+    showNormals: true,
+    color: 0x00ff88,
+    colorMix: .2,
+  }
+  await Coordinates.LoadGeometry(renderer, geoOptions).then(async (geometry) => {
+    if(1) shapes.push(geometry)
+    await shader.ConnectGeometry(geometry)
+  })
+  
+  
+  if(1) Coordinates.LoadFPSControls(renderer, {
+    flyMode: true,
+    crossharSel: 2,
+    crosshairSize: .5,
+    mSpeed: .5,
+    showCrosshair: false,
+  })
+  
+  renderer.z = renderer.width > 1e3 ? 10 : 20
+  
+  window.Draw = () => {
+    var t = renderer.t
+    renderer.Clear()
+    shapes.forEach(shape => {
+      switch(shape.name){
+        case 'background':
+          renderer.Draw(shape)
+        break
+        case 'main':
+          //shape.yaw += .01
+          //shape.pitch = Math.PI/2
+          //shape.roll += .01
+          //renderer.Draw(shape)
+        break
+        case 'output':
+          shape.yaw += .0025
+          renderer.Draw(shape)
+        break
+        default:
+          renderer.Draw(shape)
+        break
+      }
+    })
+    
+    var showIndices = false
+    if(showIndices){
+      var ctx = Coordinates.Overlay.ctx
+      var c = Coordinates.Overlay.c
+      var w = c.width
+      var h = c.height
+      var fs
+      ctx.textAlign = 'center'
+      endpoints.forEach((v, i) => {
+        
+        var ar = Coordinates.GetShaderCoord(v.x2,
+                                            v.y2,
+                                            v.z2,
+                               shapes.filter(v=>v.name=='main')[0],
+                               renderer)
+        if(ar){
+          ctx.fillStyle = '#fff'
+          ctx.font = (fs = 500 / ar[2]) + 'px monospace'
+          ctx.fillText(i, ar[0], ar[1]+fs/2.5)
+        }
+      })
+    }
+  }
+  
+</script>
+  </body>
+</html>
